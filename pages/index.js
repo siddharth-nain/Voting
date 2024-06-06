@@ -11,7 +11,7 @@ export default function VotingPage() {
   const [votesForPartyB, setVotesForPartyB] = useState(undefined);
   const [winningParty, setWinningParty] = useState(undefined);
 
-  const contractAddress = "0xYourContractAddress"; // Replace with your contract address
+  const contractAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
   const votingABI = voting_abi.abi;
 
   const getWallet = async () => {
