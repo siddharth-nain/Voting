@@ -1,253 +1,198 @@
 import { useState, useEffect } from "react";
 import { ethers } from "ethers";
-import voting_abi from "../artifacts/contracts/Voting.sol/Voting.json";
+import atm_abi from "../artifacts/contracts/Assessment.sol/Assessment.json";
 
-export default function VotingPage() {
-  const [ethWallet, setEthWallet] = useState(undefined);
-  const [account, setAccount] = useState(undefined);
-  const [voting, setVoting] = useState(undefined);
-  const [totalVotes, setTotalVotes] = useState(undefined);
-  const [votesForPartyA, setVotesForPartyA] = useState(undefined);
-  const [votesForPartyB, setVotesForPartyB] = useState(undefined);
-  const [winningParty, setWinningParty] = useState(undefined);
+export default function HomePage() {
+    const [ethWallet, setEthWallet] = useState(undefined);
+    const [account, setAccount] = useState(undefined);
+    const [atm, setATM] = useState(undefined);
+    const [balance, setBalance] = useState(undefined);
 
-  const contractAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
-  const votingABI = voting_abi.abi;
+    const contractAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+    const atmABI = atm_abi.abi;
 
-  const getWallet = async () => {
-    if (window.ethereum) {
-      setEthWallet(window.ethereum);
-    }
+    const getWallet = async () => {
+        if (window.ethereum) {
+            setEthWallet(window.ethereum);
+        }
 
-    if (ethWallet) {
-      const accounts = await ethWallet.request({ method: "eth_accounts" });
-      handleAccount(accounts);
-    }
-  };
+        if (ethWallet) {
+            const account = await ethWallet.request({ method: "eth_accounts" });
+            handleAccount(account);
+        }
+    };
 
-  const handleAccount = (accounts) => {
-    if (accounts && accounts.length > 0) {
-      console.log("Account connected: ", accounts[0]);
-      setAccount(accounts[0]);
-    } else {
-      console.log("No account found");
-    }
-  };
+    const handleAccount = (account) => {
+        if (account) {
+            console.log("Account connected: ", account);
+            setAccount(account);
+        } else {
+            console.log("No account found");
+        }
+    };
 
-  const connectAccount = async () => {
-    if (!ethWallet) {
-      alert("MetaMask wallet is required to connect");
-      return;
-    }
+    const connectAccount = async () => {
+        if (!ethWallet) {
+            alert("MetaMask wallet is required to connect");
+            return;
+        }
 
-    const accounts = await ethWallet.request({ method: "eth_requestAccounts" });
-    handleAccount(accounts);
+        const accounts = await ethWallet.request({
+            method: "eth_requestAccounts",
+        });
+        handleAccount(accounts);
 
-    // once wallet is set, we can get a reference to our deployed contract
-    getVotingContract();
-  };
+        // once wallet is set we can get a reference to our deployed contract
+        getATMContract();
+    };
 
-  const getVotingContract = () => {
-    const provider = new ethers.providers.Web3Provider(ethWallet);
-    const signer = provider.getSigner();
-    const votingContract = new ethers.Contract(contractAddress, votingABI, signer);
+    const getATMContract = () => {
+        const provider = new ethers.providers.Web3Provider(ethWallet);
+        const signer = provider.getSigner();
+        const atmContract = new ethers.Contract(
+            contractAddress,
+            atmABI,
+            signer
+        );
 
-    setVoting(votingContract);
-  };
+        setATM(atmContract);
+    };
 
-  const fetchVotes = async () => {
-    if (voting) {
-      const total = (await voting.totalVotes()).toNumber();
-      const partyA = (await voting.votesForPartyA()).toNumber();
-      const partyB = (await voting.votesForPartyB()).toNumber();
+    const getBalance = async () => {
+        if (atm) {
+            setBalance((await atm.getBalance()).toNumber());
+        }
+    };
 
-      setTotalVotes(total);
-      setVotesForPartyA(partyA);
-      setVotesForPartyB(partyB);
-    }
-  };
+    const deposit = async () => {
+        if (atm) {
+            const amount = document.getElementById("amount").value;
+            let tx = await atm.deposit(amount);
+            await tx.wait();
+            getBalance();
+        }
+    };
 
-  const fetchWinningParty = async () => {
-    if (voting) {
-      const winner = await voting.winningParty();
-      setWinningParty(winner);
-    }
-  };
+    const withdraw = async () => {
+        if (atm) {
+            const amount = document.getElementById("amount").value;
+            let tx = await atm.withdraw(amount);
+            await tx.wait();
+            getBalance();
+        }
+    };
 
-  const setVotes = async (votes) => {
-    if (voting) {
-      let tx = await voting.setTotalVotes(votes);
-      await tx.wait();
-      fetchVotes();
-    }
-  };
+    const withdrawAll = async () => {
+        if (atm) {
+            let tx = await atm.withdrawAll(1, { gasLimit: 200000 });
+            await tx.wait();
+            getBalance();
+        }
+    };
 
-  const voteForPartyA = async (votes) => {
-    if (voting) {
-      let tx = await voting.voteForPartyA(votes);
-      await tx.wait();
-      fetchVotes();
-    }
-  };
+    const initUser = () => {
+        // Check to see if user has Metamask
+        if (!ethWallet) {
+            return <p>Please install Metamask in order to get the water bill.</p>;
+        }
 
-  const voteForPartyB = async (votes) => {
-    if (voting) {
-      let tx = await voting.voteForPartyB(votes);
-      await tx.wait();
-      fetchVotes();
-    }
-  };
+        // Check to see if user is connected. If not, connect to their account
+        if (!account) {
+            return (
+                <button className="btn" onClick={connectAccount}>
+                    Please connect your Metamask wallet
+                </button>
+            );
+        }
 
-  const initUser = () => {
-    // Check to see if user has Metamask
-    if (!ethWallet) {
-      return <p>Please install Metamask to authenticate.</p>;
-    }
+        if (balance == undefined) {
+            getBalance();
+        }
 
-    // Check to see if user is connected. If not, connect to their account
-    if (!account) {
-      return (
-        <button className="connect-button" onClick={connectAccount}>
-          Authenticate with MetaMask Wallet
-        </button>
-      );
-    }
+        return (
+            <div className="h-full flex flex-col items-center justify-center">
+                <h6 className="flex justify-center font-black text-4xl">
+                    {balance}
+                    <span className="text-yellow-400 ms-2">Wallet</span>
+                </h6>
+                <h6 className="mt-2 mb-40 border-2 border-neutral-600 border-neutral-500 p-1 rounded text-xs">
+                    {account}
+                </h6>
+                <div className="flex items-center justify-evenly">
+                    <button className="btn m-2" onClick={deposit}>
+                        Get Bill
+                    </button>
+                    <button className="btn m-2" onClick={withdraw}>
+                        TOTAL
+                    </button>
+                    <button className="btn m-2" onClick={withdrawAll}>
+                        Continue
+                    </button>
+                </div>
+                <form className="flex items-center justify-center">
+                    <label className="text-xl me-1">Amount:</label>
+                    <input
+                        id="amount"
+                        type="number"
+                        className="bg-transparent border-2 border-neutral-600 p-1 rounded text-xl w-14"
+                        defaultValue={1}
+                        min={1}
+                    />
+                </form>
+            </div>
+        );
+    };
 
-    if (totalVotes === undefined) {
-      fetchVotes();
-    }
+    useEffect(() => {
+        getWallet();
+    }, []);
 
     return (
-      <div className="voting-container">
-        <div className="set-votes">
-          <label>Set Total Votes: </label>
-          <input type="number" id="totalVotes" name="totalVotes" />
-          <button onClick={() => setVotes(document.getElementById("totalVotes").value)}>Set</button>
-        </div>
+        <main className="w-screen h-screen flex items-center justify-evenly">
+            <script src="https://cdn.tailwindcss.com"></script>
+            <link
+                href="https://cdn.jsdelivr.net/npm/daisyui@3.9.4/dist/full.css"
+                rel="stylesheet"
+                type="text/css"
+            />
+            <link
+                href="https://fonts.cdnfonts.com/css/chicago-2"
+                rel="stylesheet"
+            ></link>
+            <link
+                href="https://fonts.googleapis.com/css2?family=Roboto&display=swap"
+                rel="stylesheet"
+            ></link>
 
-        <div className="boundary"></div>
+            <div className="grid grid-cols-2 gap-64">
+                <header className="col-span-1 flex items-center">
+                    <h2 className="font-normal text-8xl text-cyan-400">
+                        Water-Billing System
+                    </h2>
+                </header>
+                <section className="col-span-1 h-screen flex justify-center items-center">
+                    {initUser()}
+                </section>
+            </div>
+            <style jsx>
+                {`
+                    * {
+                        font-family: "Roboto", sans-serif;
+                    }
 
-        <div className="vote-section">
-          <div className="vote-for-party">
-            <label>Vote for Party A: </label>
-            <input type="number" id="votesPartyA" name="votesPartyA" />
-            <button onClick={() => voteForPartyA(document.getElementById("votesPartyA").value)}>Vote</button>
-          </div>
-          <div className="vote-for-party">
-            <label>Vote for Party B: </label>
-            <input type="number" id="votesPartyB" name="votesPartyB" />
-            <button onClick={() => voteForPartyB(document.getElementById("votesPartyB").value)}>Vote</button>
-          </div>
-        </div>
+                    body {
+                        background-color: #1a202c;
+                    }
 
-        <div className="boundary"></div>
+                    h1 {
+                        font-family: "Chicago", sans-serif;
+                    }
 
-        <div className="result-section">
-          <button className="result-button" onClick={fetchWinningParty}>Show Result</button>
-          {winningParty && <p className="winner">Winning Party: {winningParty}</p>}
-        </div>
-      </div>
+                    .container {
+                        text-align: center;
+                    }
+                `}
+            </style>
+        </main>
     );
-  };
-
-  useEffect(() => {
-    getWallet();
-  }, [ethWallet]);
-
-  return (
-    <main className="container">
-      <header><h1 className="title">Hello EC, Please update the following</h1></header>
-      {initUser()}
-      <style jsx>{`
-        .container {
-          text-align: center;
-          background-color: #f0f0f0;
-          color: #333;
-          border: 2px solid #ccc;
-          padding: 20px;
-          border-radius: 10px;
-          margin: 20px auto;
-          max-width: 600px;
-          box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
-        }
-        .title {
-          font-size: 24px;
-          margin-bottom: 20px;
-        }
-        .connect-button, .result-button, .vote-for-party button, .set-votes button {
-          background-color: #007bff;
-          color: #fff;
-          border: none;
-          padding: 10px 20px;
-          font-size: 16px;
-          cursor: pointer;
-          border-radius: 5px;
-          margin: 10px 0;
-          transition: background-color 0.3s ease;
-        }
-        .connect-button:hover, .result-button:hover, .vote-for-party button:hover, .set-votes button:hover {
-          background-color: #0056b3;
-        }
-        .voting-container {
-          margin-top: 20px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-        }
-        .boundary {
-          width: 100%;
-          height: 2px;
-          background-color: #ccc;
-          margin: 20px 0;
-        }
-        .set-votes {
-          margin
--bottom: 20px;
-        }
-        .set-votes label {
-          font-size: 20px;
-          margin-bottom: 10px;
-        }
-        .set-votes input {
-          padding: 8px;
-          border-radius: 5px;
-          border: 1px solid #ccc;
-          width: 150px;
-          font-size: 16px;
-        }
-        .set-votes button {
-          padding: 8px 20px;
-          font-size: 16px;
-        }
-        .vote-section {
-          display: flex;
-          justify-content: space-around;
-          margin-bottom: 20px;
-        }
-        .vote-for-party {
-          text-align: center;
-        }
-        .vote-for-party label, .vote-for-party input, .vote-for-party button {
-          font-size: 20px;
-          margin-bottom: 10px;
-        }
-        .vote-for-party input {
-          padding: 8px;
-          border-radius: 5px;
-          border: 1px solid #ccc;
-          width: 150px;
-        }
-        .vote-for-party button {
-          padding: 8px 20px;
-        }
-        .result-section {
-          margin-bottom: 20px;
-        }
-        .winner {
-          font-size: 20px;
-          margin-top: 20px;
-        }
-      `}</style>
-    </main>
-  );
 }
